@@ -1,0 +1,135 @@
+// Include files for required libraries
+#include <stdio.h>
+#include <iostream>
+#include "opencv_aee.hpp"
+#include "main.hpp"     // You can use this file for declaring defined values and functions
+#include "pi2c.h"
+
+using namespace std;
+using namespace cv;
+
+Pi2c car(0x22); // Configure the I2C interface to the Car as a global variable
+
+void setup(void)
+{
+    setupCamera(320, 240);  // Enable the camera for OpenCV
+}
+
+int main( int argc, char** argv )
+{
+    setup();    // Call a setup function to prepare IO and devices
+
+    cv::namedWindow("Photo");   // Create a GUI window called photo
+    namedWindow("HSV Tester");
+
+    //Purple
+    //int lowH = 143, highH = 179, lowS = 40, highS = 255, lowV = 0, highV = 124;
+
+    // Blue
+    //int owH = 100, highH = 150, lowS = 100, highS = 255, lowV = 50, highV = 255;
+
+    // Green
+    //int lowH = 70, highH = 100, lowS = 60, highS = 255, lowV = 60, highV = 255;
+
+    // Red
+    //int lowH = 160, highH = 179, lowS = 60, highS = 255, lowV = 80, highV = 255;
+
+    // Black
+    int lowH = 42, highH = 179, lowS = 0, highS = 182, lowV = 0, highV = 68;
+
+    createTrackbar("Low Hue", "HSV Tester", &lowH, 179, NULL);      // Create trackbar controls for each HSV limit
+    createTrackbar("High Hue", "HSV Tester", &highH, 179, NULL);
+
+    createTrackbar("Low Sat", "HSV Tester", &lowS, 255, NULL);
+    createTrackbar("High Sat", "HSV Tester", &highS, 255, NULL);
+
+    createTrackbar("Low Value", "HSV Tester", &lowV, 255, NULL);
+    createTrackbar("High Value", "HSV Tester", &highV, 255, NULL);
+
+
+
+    while(1)    // Main loop to perform image processing
+    {
+        Mat frame;
+
+        while(frame.empty())
+            frame = captureFrame(); // Capture a frame from the camera and store in a new matrix variable
+
+        cv::imshow("Photo", frame); //Display the image in the window
+
+        int key = cv::waitKey(1);   // Wait 1ms for a keypress (required to update windows)
+
+
+        Mat frame_HSV;
+
+        cvtColor(frame, frame_HSV, COLOR_BGR2HSV); //convert the frame from camera to HSV
+
+        inRange(frame_HSV, Scalar(lowH, lowS, lowV), Scalar(highH, highS, highV), frame_HSV);
+
+        cv::imshow("Photo2", frame_HSV);
+
+        Mat croppedFrameHSV;
+
+        croppedFrameHSV = frame_HSV(Rect(0, 0, 319, 1));
+
+        cv::imshow("Cropped Frame", croppedFrameHSV);
+
+        //Mat SiStore(1, 320, croppedFrameHSV.type());
+        int SiSum = 0;
+        int weightedSum = 0;
+        int Xi = 0;
+        int x = 0;
+        int flag_255 = 0;
+
+        for (int i = 0; i < 320; i++){
+            uchar pixel = croppedFrameHSV.at<uchar>(0, i);
+            //std::cout<< static_cast<int>(pixel) <<std::endl;
+
+            uchar Si = pixel;
+
+
+
+            if(Si == 255)
+            {
+                flag_255 = 1;
+            }
+
+
+            Xi = i - 160;
+            weightedSum +=  Xi * Si; // Accumulate the weighted sum
+            SiSum = SiSum + Si;
+            //SiStore.at<uchar>(0, i) = pixel; // Store pixel value in XiStore
+            //waitKey(50);
+
+        }
+
+        int Xpk = (SiSum != 0) ? (weightedSum / SiSum) : 0.0;
+
+        char XpkValue [3];
+        XpkValue[0] = (Xpk >> 8) & 0xFF;
+        XpkValue[1] = Xpk & 0xFF;
+        XpkValue[2] = flag_255 & 0xFF;
+        car.i2cWrite(XpkValue, 3);
+
+
+        //cout << "255's: " << x << endl;
+        //cout << "SiSum: " << SiSum << endl;
+        cout << "Xpk: " << Xpk << endl;
+        cout << "Flag: " << flag_255 << endl;
+
+
+
+
+
+        key = (key==255) ? -1 : key;    // Check if the ESC key has been pressed
+        if (key == 27)
+            break;
+    }
+
+    closeCV();  // Disable the camera and close any windows
+
+    return 0;
+}
+
+
+
