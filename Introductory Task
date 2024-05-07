@@ -1,0 +1,75 @@
+#include <opencv2/opencv.hpp>
+#include <iostream>
+
+using namespace cv;
+using namespace std;
+
+int main() {
+    // Create a window to display the image
+    namedWindow("HSV Tester");
+
+    // Initialize HSV thresholds for red, blue, and green
+    int lowRedH = 0, highRedH = 10, lowRedS = 101, highRedS = 255, lowRedV = 55, highRedV = 255;
+    int lowBlueH = 80, highBlueH = 179, lowBlueS = 70, highBlueS = 255, lowBlueV = 24, highBlueV = 255;
+    int lowGreenH = 32, highGreenH = 84, lowGreenS = 21, highGreenS = 255, lowGreenV = 26, highGreenV = 255;
+
+    // Load the image
+    Mat image = imread("C:/Users/cwrem/OneDrive/University/Notts Uni Docs/Project/OpenCV inc CodeBlocks/OpenCV Task/Images/RedApple.bmp");
+
+    while(1) {
+        // Convert the image to HSV color space
+        Mat imageHSV;
+        cvtColor(image, imageHSV, COLOR_BGR2HSV);
+
+        int x = (image.cols - 160) / 2; // Centering the crop
+        int y = (image.rows - 120) / 2; // Centering the crop
+
+        int width = 160;
+        int height = 120;
+
+        Mat croppedImage;
+        croppedImage = imageHSV(Rect(x, y, width, height));
+
+        // Threshold the image to isolate red, blue, and green regions
+        Mat redMask, blueMask, greenMask;
+        inRange(croppedImage, Scalar(lowRedH, lowRedS, lowRedV), Scalar(highRedH, highRedS, highRedV), redMask);
+        inRange(croppedImage, Scalar(lowBlueH, lowBlueS, lowBlueV), Scalar(highBlueH, highBlueS, highBlueV), blueMask);
+        inRange(croppedImage, Scalar(lowGreenH, lowGreenS, lowGreenV), Scalar(highGreenH, highGreenS, highGreenV), greenMask);
+
+        // Count the number of non-zero pixels in each mask
+        int redPixels = countNonZero(redMask);
+        int bluePixels = countNonZero(blueMask);
+        int greenPixels = countNonZero(greenMask);
+
+        // Determine the dominant color
+        string dominantColor;
+        if (redPixels > bluePixels && redPixels > greenPixels)
+            dominantColor = "Red";
+        else if (bluePixels > redPixels && bluePixels > greenPixels)
+            dominantColor = "Blue";
+        else if (greenPixels > redPixels && greenPixels > bluePixels)
+            dominantColor = "Green";
+        else
+            dominantColor = "Unknown";
+
+        // Display the dominant color
+        cout << "Dominant Color: " << dominantColor << endl;
+
+        // Display the original image and the masks
+        imshow("Original Image", image);
+        imshow("Red Mask", redMask);
+        imshow("Blue Mask", blueMask);
+        imshow("Green Mask", greenMask);
+        imshow("Cropped Image", croppedImage);
+
+        // Check for ESC key press
+        int key = waitKey(1);
+        if (key == 27)
+            break;
+    }
+
+    // Close all windows
+    destroyAllWindows();
+
+    return 0;
+}
